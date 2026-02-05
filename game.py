@@ -1,11 +1,18 @@
 import cv2
-import numpy as np
+import typing
+
+from components.cursor import Cursor
+from components.player_hand import PlayerHand
+
+if typing.TYPE_CHECKING:
+    from model import Model
 
 
 class Game:
-    def __init__(self, md):
+    def __init__(self, md: "Model"):
         self.md = md
         self.qt = 0
+        self.cursors: dict[int, Cursor] = {}
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
@@ -28,7 +35,7 @@ class Game:
         # Appliquer la transparence
         cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
 
-    def draw_info_panel(self, player_count, angles):
+    def draw_info_panel(self, player_count: int, angles: PlayerHand.Angle | None):
         """Affiche un panneau d'informations stylisé"""
         panel_height = 120
         panel_width = 280
@@ -81,7 +88,7 @@ class Game:
         if angles:
             cv2.putText(
                 self.md.frame,
-                f"Pitch: {angles[0]:.1f}°",
+                f"Pitch: {angles.pitch:.1f}°",
                 (panel_x + 15, panel_y + 85),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
@@ -90,7 +97,7 @@ class Game:
             )
             cv2.putText(
                 self.md.frame,
-                f"Roll: {angles[1]:.1f}°  Yaw: {angles[2]:.1f}°",
+                f"Roll: {angles.roll:.1f}°  Yaw: {angles.yaw:.1f}°",
                 (panel_x + 15, panel_y + 105),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
@@ -133,9 +140,13 @@ class Game:
             print("Quitting game...")
             self.qt = 1
 
-    def draw_cursor(self, x, y, is_active):
+    def draw_cursor(
+        self, origin: tuple[int, int], pos: tuple[int, int], is_active: bool
+    ):
         """Dessine un curseur stylisé"""
-        pos = (int(x), int(y))
+
+        # Draw line between origin and pos
+        cv2.line(self.md.frame, origin, pos, (255, 255, 255), 1)
 
         if is_active:
             # Curseur actif (shooting) - Rouge avec effet de pulsation
@@ -167,33 +178,20 @@ class Game:
 
         # Afficher le panneau d'info
         player_count = len(self.md.player)
-        angles = self.md.player[0]["angle"] if player_count > 0 else None
+        angles = self.md.player[0].angle if player_count > 0 else None
         self.draw_info_panel(player_count, angles)
 
         # Dessiner les curseurs pour chaque main
-        for i, player in enumerate(self.md.player):
-            self.handle_click(
-                int(player["projected_pos"][0]),
-                int(player["projected_pos"][1]),
-                player["is_shooting"],
-            )
-            self.draw_cursor(
-                player["projected_pos"][0],
-                player["projected_pos"][1],
-                player["is_shooting"],
-            )
+        for i, player in self.md.player.items():
+            cursor = self.cursors.get(player.id)
+            if not cursor:
+                cursor = Cursor(player.projected_pos, (0, 255, 0))
+                self.cursors[player.id] = cursor
 
-            # Afficher le numéro de la main si plusieurs mains
-            if player_count > 1:
-                cv2.putText(
-                    self.md.frame,
-                    f"#{i+1}",
-                    (
-                        int(player["projected_pos"][0]) + 20,
-                        int(player["projected_pos"][1]) - 10,
-                    ),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 255),
-                    2,
-                )
+            cursor.update(player.projected_pos, player.pos, player.is_shooting)
+
+            self.handle_click(
+                *cursor.pos,
+                player.is_shooting,
+            )
+            cursor.draw(self.md.frame)

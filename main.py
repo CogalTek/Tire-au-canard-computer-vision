@@ -22,6 +22,7 @@ def main():
         height, width = frame.shape[:2]
         md.width, md.height = width, height
 
+        md.update()
         md.predict(frame)
         gm.update()
 

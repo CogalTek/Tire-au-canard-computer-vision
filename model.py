@@ -1,23 +1,31 @@
 import mediapipe as mp
 import numpy as np
 import cv2
+from mediapipe.python.solutions import hands
+
+from components.player_hand import PlayerHand
 
 
 class Model:
     def __init__(self):
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
-        self.mp_draw = mp.solutions.drawing_utils
+        self.hands = hands.Hands(
+            max_num_hands=2, min_detection_confidence=0.8, min_tracking_confidence=0.5
+        )
         self.cap = cv2.VideoCapture(0)
         self.frame = None
-        self.player = []
+        self.player: dict[int, PlayerHand] = {}
         self.height = 480
         self.width = 640
-        self.index_info = {}
 
-    def predict(self, frame):
+    def update(self):
+        # Remove players that haven't been detected for a while
+        for player in list(self.player.values()):
+            player.update()
+            if not player.is_active:
+                self.player.pop(player.id, None)
+
+    def predict(self, frame: cv2.typing.MatLike):
         self.frame = frame
-        self.player = []
         frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
         results = self.hands.process(frame_rgb)
 
@@ -31,8 +39,24 @@ class Model:
                 self.height,
             )
 
-    def createGuizmo(self, multi_landmarks, multi_world_landmarks, width, height):
-        for hand_lms, hand_world_lms in zip(multi_landmarks, multi_world_landmarks):
+    def createGuizmo(
+        self,
+        multi_landmarks: list,
+        multi_world_landmarks: list,
+        width: int,
+        height: int,
+    ):
+        for i, (hand_lms, hand_world_lms) in enumerate(
+            zip(multi_landmarks, multi_world_landmarks)
+        ):
+            # player = self._find_or_create_player(hand_world_lms)
+            if i >= 2:
+                print(
+                    f"Warning: Detected more hands than player slots ({i}/{2}). Ignoring extra hands."
+                )
+                continue
+            player = self.player.get(i, PlayerHand(id=i))
+
             # --- 1. POSITION ÉCRAN (Utilise hand_landmarks) ---
             # On prend l'index (point 8) ou le poignet (point 0)
             index_tip = hand_lms.landmark[8]
@@ -81,13 +105,6 @@ class Model:
             dist_3d = float(np.linalg.norm(thumb_pos - index_pos))
 
             index_tip = hand_lms.landmark[8]
-            self.index_info = {
-                "x": int(index_tip.x * width),
-                "y": int(index_tip.y * height),
-                "z": index_tip.z,
-                "dist_2d": float(dist_2d),
-                "dist_3d": dist_3d,
-            }
 
             # debug tracé de la distance (2D projection)
             cv2.line(
@@ -108,26 +125,29 @@ class Model:
             )
 
             # Use a 3D threshold (meters) for shooting detection; adjust as needed
-            is_shooting = dist_3d < 0.035 and self._is_thumb_bent(hand_world_lms)
+            is_shooting = (
+                # dist_3d < 0.035
+                1
+                and self._is_thumb_bent(hand_lms)
+                # and abs(player.average_dist_3D - dist_3d)
+                # > 0.01  # ensure it's a new "shoot" action, not just noise
+            )
 
             projected_pos = self._calculate_projected_pos(
                 hand_lms, hand_world_lms, width, height
             )
 
-            # expose projected pos in index_info as well
-            self.index_info.update({"projected_pos": projected_pos})
-
-            self.player.append(
-                {
-                    "angle": (pitch, roll, yaw),
-                    "pos": (screen_x, screen_y),
-                    "is_shooting": is_shooting,
-                    "projected_pos": projected_pos,
-                }
-            )
+            player.angle = PlayerHand.Angle(pitch, roll, yaw)
+            player.pos = (screen_x, screen_y)
+            player.projected_pos = projected_pos
+            player.is_shooting = is_shooting
+            player.average_dist_3D = (
+                dist_3d * 0.5 + player.average_dist_3D * 0.5
+            )  # simple moving average to smooth distance
+            self.player[i] = player
 
     def _calculate_projected_pos(
-        self, hand_lms, hand_world_lms, width, height, forward_m=0.1
+        self, hand_lms, hand_world_lms, width, height, forward_m=0.5
     ):
         """Compute projected image pixel position by moving forward `forward_m` meters
         along the axis defined by world landmarks 5->8, then map that world offset
@@ -145,33 +165,19 @@ class Model:
             [int(idx_tip_2d.x * width), int(idx_tip_2d.y * height)], dtype=float
         )
 
-        # world-space points
-        wm5 = hand_world_lms.landmark[5]
-        wm8 = hand_world_lms.landmark[8]
-        p_mcp_w = np.array([wm5.x, wm5.y, wm5.z], dtype=float)
-        p_tip_w = np.array([wm8.x, wm8.y, wm8.z], dtype=float)
-
-        # world and image displacement from MCP->TIP
-        v_world = p_tip_w - p_mcp_w
-        v_world_xy = v_world[:2]
+        # Derive pixels-per-meter from image MCP->TIP displacement assuming
+        # the finger length is always 0.4 meters (no world landmarks used).
         v_img = px_tip - px_mcp
-
-        world_xy_norm = np.linalg.norm(v_world_xy)
         img_norm = np.linalg.norm(v_img)
+        finger_length_m = 0.4
 
-        # If we can estimate pixels-per-meter from the observed displacement, use it
-        if world_xy_norm > 1e-6 and img_norm > 0:
-            pixels_per_meter = img_norm / world_xy_norm
-            # direction in world-space (use full 3D direction but map only x,y)
-            dir_world = (
-                v_world / np.linalg.norm(v_world)
-                if np.linalg.norm(v_world) > 0
-                else np.array([0.0, 0.0, 0.0])
-            )
-            # project forward in world meters, then convert x,y world displacement to pixels
-            delta_pixels = dir_world[:2] * (pixels_per_meter * forward_m)
+        if img_norm > 1e-6:
+            pixels_per_meter = img_norm / finger_length_m
+            dir_unit = v_img / img_norm
+            delta_pixels = dir_unit * (pixels_per_meter * forward_m)
             proj_point = px_tip + delta_pixels
         else:
+            print("Fallback projection used due to unstable world->image mapping")
             # fallback: simple image-space 10-pixel forward
             dir_px = px_tip - px_mcp
             norm_dir = np.linalg.norm(dir_px)
@@ -184,21 +190,67 @@ class Model:
         proj_point[0] = width - proj_point[0]
         return (int(proj_point[0]), int(proj_point[1]))
 
-    def _is_thumb_bent(self, hand_world_lms):
-        th2_w = hand_world_lms.landmark[2]
-        th3_w = hand_world_lms.landmark[3]
-        th4_w = hand_world_lms.landmark[4]
-        p2 = np.array([th2_w.x, th2_w.y, th2_w.z])
-        p3 = np.array([th3_w.x, th3_w.y, th3_w.z])
-        p4 = np.array([th4_w.x, th4_w.y, th4_w.z])
+    def _is_thumb_bent(self, hand_lms):
+        """Estimate thumb bend using image-space landmarks (`hand_lms`).
 
-        v_a = p2 - p3
-        v_b = p4 - p3
-        na = np.linalg.norm(v_a)
-        nb = np.linalg.norm(v_b)
+        Reconstruct a simple 3D chain for the thumb using the landmark directions
+        and assuming each segment length = 0.2 meters. Then compute the angle at
+        the middle joint and return True if bend > 25°.
+        """
+        # Use landmarks 4,5,8 which are the thumb tip, index base, and index tip respectively
+        lm2 = hand_lms.landmark[4]
+        lm3 = hand_lms.landmark[3]
+        lm4 = hand_lms.landmark[2]
+
+        # Build direction vectors from normalized landmarks (x,y,z provided by hand_lms)
+        v23 = np.array([lm3.x - lm2.x, lm3.y - lm2.y, lm3.z - lm2.z], dtype=float)
+        v34 = np.array([lm4.x - lm3.x, lm4.y - lm3.y, lm4.z - lm3.z], dtype=float)
+
+        na = np.linalg.norm(v23)
+        nb = np.linalg.norm(v34)
         if na == 0 or nb == 0:
             return False
-        cosang = np.clip(np.dot(v_a, v_b) / (na * nb), -1.0, 1.0)
+
+        # Unit directions in image-normalized space
+        d23 = v23 / na
+        d34 = v34 / nb
+
+        # Reconstruct 3D positions assuming each thumb segment length = 0.2 m
+        L = 0.2
+        p2 = np.array([0.0, 0.0, 0.0], dtype=float)
+        p3 = p2 + d23 * L
+        p4 = p3 + d34 * L
+
+        # Angle at p3 between p2->p3 and p4->p3
+        va = p2 - p3
+        vb = p4 - p3
+        na2 = np.linalg.norm(va)
+        nb2 = np.linalg.norm(vb)
+        if na2 == 0 or nb2 == 0:
+            return False
+        cosang = np.clip(np.dot(va, vb) / (na2 * nb2), -1.0, 1.0)
         angle_deg = float(np.degrees(np.arccos(cosang)))
         bend_deg = abs(180.0 - angle_deg)
-        return bend_deg > 25.0
+
+        # Side view
+        ## First segment (constant, length = 0.2, along y axis, start in center of screen)
+        cv2.line(
+            self.frame,
+            (self.width // 2, self.height // 2),
+            (self.width // 2, self.height // 2 + int(L * self.height)),
+            (255, 255, 0),
+            2,
+        )
+        # rotated second segment
+        end_x = int(self.width // 2 + L * self.height * np.sin(np.radians(bend_deg)))
+        end_y = int(self.height // 2 + L * self.height * np.cos(np.radians(bend_deg)))
+        cv2.line(
+            self.frame,
+            (self.width // 2, self.height // 2),
+            (end_x, end_y),
+            (255, 0, 0),
+            2,
+        )
+
+        print(f"Thumb bend angle (est): {bend_deg:.1f}°")
+        return bend_deg > 40
