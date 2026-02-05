@@ -1,5 +1,5 @@
 import cv2
-from game import game
+from _game import game
 import numpy as np
 
 # from ultralytics import YOLO
