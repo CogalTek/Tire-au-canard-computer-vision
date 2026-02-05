@@ -1,35 +1,36 @@
 import cv2
-from _game import game
+from model import Model
+from game import Game
 import numpy as np
 
-# from ultralytics import YOLO
+#
 
 
 def main():
-    window = cv2.namedWindow("Frame")
-    # cap = cv2.VideoCapture(1)
-    # model = YOLO("model.pt")
+    md = Model()
+    gm = Game(md)
+    window_name = "Hand Gesture Recognition"
+    cv2.namedWindow(window_name)
 
-    while cv2.getWindowProperty("Frame", cv2.WND_PROP_VISIBLE) >= 1:
-        # ret, frame = cap.read()
-        # frame = cv2.imread(
-        #     "assets/empty.png"
-        # )  # Placeholder for testing without a camera
-        frame = np.array(
-            [[(0, 0, 0) for _ in range(640)] for _ in range(480)], dtype=np.uint8
-        )
+    while md.cap.isOpened():
+        success, frame = md.cap.read()
+        if not success:
+            print("Ignoring empty camera frame.")
+            continue
 
-        if frame is None:
-            print("Failed to load image")
+        # Utiliser les dimensions de la frame capturée
+        height, width = frame.shape[:2]
+        md.width, md.height = width, height
+
+        md.predict(frame)
+        gm.update()
+
+        cv2.imshow(window_name, md.frame)
+        if cv2.waitKey(1) & 0xFF == ord("q") or gm.qt == 1:
             break
 
-        frame = game(frame)
-
-        cv2.imshow("Frame", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-        if cv2.getWindowProperty("Frame", cv2.WND_PROP_VISIBLE) < 1:
-            break
+    md.cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
