@@ -1,27 +1,32 @@
 import cv2
 from model import Model
+from game import Game
 
 def main():
 	md = Model()
+	gm = Game(md)
+	window_name = 'Hand Gesture Recognition'
+	cv2.namedWindow(window_name)
+
 	while md.cap.isOpened():
-		success, image = md.cap.read()
+		success, frame = md.cap.read()
 		if not success:
 			print("Ignoring empty camera frame.")
 			continue
 
-		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-		results = md.hands.process(image)
+		# Utiliser les dimensions de la frame capturée
+		height, width = frame.shape[:2]
+		md.width, md.height = width, height
 
-		if results.multi_hand_landmarks:
-			for hand_landmarks in results.multi_hand_landmarks:
-				md.mp_draw.draw_landmarks(image, hand_landmarks, md.mp_hands.HAND_CONNECTIONS)
+		md.predict(frame)
+		gm.update()
 
-		prediction = md.predict(image)
-		cv2.putText(image, prediction, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-
-		cv2.imshow('Hand Gesture Recognition', image)
-		if cv2.waitKey(5) & 0xFF == 27:
+		cv2.imshow(window_name, md.frame)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
+
+	md.cap.release()
+	cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
