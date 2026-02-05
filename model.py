@@ -7,7 +7,7 @@ class Model:
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
         self.mp_draw = mp.solutions.drawing_utils
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(1)
         self.frame = None
         self.player = []
         self.height = 480
@@ -25,7 +25,7 @@ class Model:
             self.createGuizmo(
                 results.multi_hand_landmarks, 
                 results.multi_hand_world_landmarks, 
-                self.width, 
+                self.width,
                 self.height
             )
 
@@ -34,8 +34,8 @@ class Model:
             # --- 1. POSITION ÉCRAN (Utilise hand_landmarks) ---
             # On prend l'index (point 8) ou le poignet (point 0)
             index_tip = hand_lms.landmark[8]
-            screen_x = int((1 - index_tip.x) * width)
-            screen_y = int(index_tip.y * height)
+            screen_x = int((1 - index_tip.x) * width * 2)
+            screen_y = int(index_tip.y * height * 2)
 
             # --- 2. ANGLES & GIZMO (Utilise hand_world_landmarks) ---
             wrist_w = hand_world_lms.landmark[0]
@@ -63,10 +63,22 @@ class Model:
             yaw = np.degrees(np.atan2(axe_z[0], axe_z[2]))
 
             # Gestion du shoot
-            
+            # on verifie si index:12 est proche de index:16
+            index_a = hand_lms.landmark[12]
+            index_b = hand_lms.landmark[4]
+            dist = np.sqrt((index_a.x - index_b.x) ** 2 + (index_a.y - index_b.y) ** 2)
+
+            # debug tracé de la distance
+            cv2.line(self.frame, (int(index_a.x * width), int(index_a.y * height)), (int(index_b.x * width), int(index_b.y * height)), (255, 0, 0), 2)
+            cv2.putText(self.frame, f"Dist: {dist:.4f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+
+            if (dist < 0.05):  # Seuil à ajuster selon les besoins
+                is_shooting = True
+            else:
+                is_shooting = False
 
             self.player.append({
                 'angle': (pitch, roll, yaw),
                 'pos': (screen_x, screen_y),
-                'is_shooting': False
+                'is_shooting': is_shooting
             })
