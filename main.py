@@ -22,7 +22,7 @@ def main():
 		gm.update()
 
 		cv2.imshow(window_name, md.frame)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
+		if cv2.waitKey(1) & 0xFF == ord('q') or gm.qt == 1:
 			break
 
 	md.cap.release()
