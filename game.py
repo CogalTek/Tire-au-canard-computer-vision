@@ -173,16 +173,25 @@ class Game:
         # Dessiner les curseurs pour chaque main
         for i, player in enumerate(self.md.player):
             self.handle_click(
-                int(player["pos"][0]), int(player["pos"][1]), player["is_shooting"]
+                int(player["projected_pos"][0]),
+                int(player["projected_pos"][1]),
+                player["is_shooting"],
             )
-            self.draw_cursor(player["pos"][0], player["pos"][1], player["is_shooting"])
+            self.draw_cursor(
+                player["projected_pos"][0],
+                player["projected_pos"][1],
+                player["is_shooting"],
+            )
 
             # Afficher le numéro de la main si plusieurs mains
             if player_count > 1:
                 cv2.putText(
                     self.md.frame,
                     f"#{i+1}",
-                    (int(player["pos"][0]) + 20, int(player["pos"][1]) - 10),
+                    (
+                        int(player["projected_pos"][0]) + 20,
+                        int(player["projected_pos"][1]) - 10,
+                    ),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     (255, 255, 255),

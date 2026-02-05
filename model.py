@@ -108,18 +108,81 @@ class Model:
             )
 
             # Use a 3D threshold (meters) for shooting detection; adjust as needed
-            if dist_3d < 0.035 and self._is_thumb_bent(hand_world_lms):
-                is_shooting = True
-            else:
-                is_shooting = False
+            is_shooting = dist_3d < 0.035 and self._is_thumb_bent(hand_world_lms)
+
+            projected_pos = self._calculate_projected_pos(
+                hand_lms, hand_world_lms, width, height
+            )
+
+            # expose projected pos in index_info as well
+            self.index_info.update({"projected_pos": projected_pos})
 
             self.player.append(
                 {
                     "angle": (pitch, roll, yaw),
                     "pos": (screen_x, screen_y),
                     "is_shooting": is_shooting,
+                    "projected_pos": projected_pos,
                 }
             )
+
+    def _calculate_projected_pos(
+        self, hand_lms, hand_world_lms, width, height, forward_m=0.1
+    ):
+        """Compute projected image pixel position by moving forward `forward_m` meters
+        along the axis defined by world landmarks 5->8, then map that world offset
+        to image pixels using the observed image displacement between 5 and 8.
+
+        Falls back to a 10-pixel forward projection if world->image mapping is unstable.
+        """
+        # image-space points
+        idx_mcp_2d = hand_lms.landmark[5]
+        idx_tip_2d = hand_lms.landmark[8]
+        px_mcp = np.array(
+            [int(idx_mcp_2d.x * width), int(idx_mcp_2d.y * height)], dtype=float
+        )
+        px_tip = np.array(
+            [int(idx_tip_2d.x * width), int(idx_tip_2d.y * height)], dtype=float
+        )
+
+        # world-space points
+        wm5 = hand_world_lms.landmark[5]
+        wm8 = hand_world_lms.landmark[8]
+        p_mcp_w = np.array([wm5.x, wm5.y, wm5.z], dtype=float)
+        p_tip_w = np.array([wm8.x, wm8.y, wm8.z], dtype=float)
+
+        # world and image displacement from MCP->TIP
+        v_world = p_tip_w - p_mcp_w
+        v_world_xy = v_world[:2]
+        v_img = px_tip - px_mcp
+
+        world_xy_norm = np.linalg.norm(v_world_xy)
+        img_norm = np.linalg.norm(v_img)
+
+        # If we can estimate pixels-per-meter from the observed displacement, use it
+        if world_xy_norm > 1e-6 and img_norm > 0:
+            pixels_per_meter = img_norm / world_xy_norm
+            # direction in world-space (use full 3D direction but map only x,y)
+            dir_world = (
+                v_world / np.linalg.norm(v_world)
+                if np.linalg.norm(v_world) > 0
+                else np.array([0.0, 0.0, 0.0])
+            )
+            # project forward in world meters, then convert x,y world displacement to pixels
+            delta_pixels = dir_world[:2] * (pixels_per_meter * forward_m)
+            proj_point = px_tip + delta_pixels
+        else:
+            # fallback: simple image-space 10-pixel forward
+            dir_px = px_tip - px_mcp
+            norm_dir = np.linalg.norm(dir_px)
+            if norm_dir == 0:
+                return (int(px_tip[0]), int(px_tip[1]))
+            dir_unit = dir_px / norm_dir
+            proj_point = px_tip + dir_unit * 10  # 10 pixels forward
+
+        # Flip x coordinate for mirror effect
+        proj_point[0] = width - proj_point[0]
+        return (int(proj_point[0]), int(proj_point[1]))
 
     def _is_thumb_bent(self, hand_world_lms):
         th2_w = hand_world_lms.landmark[2]
