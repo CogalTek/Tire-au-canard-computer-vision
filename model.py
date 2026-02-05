@@ -2,12 +2,13 @@ import mediapipe as mp
 import numpy as np
 import cv2
 
+
 class Model:
     def __init__(self):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
         self.mp_draw = mp.solutions.drawing_utils
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         self.frame = None
         self.player = []
         self.height = 480
@@ -23,10 +24,10 @@ class Model:
         if results.multi_hand_landmarks and results.multi_hand_world_landmarks:
             # zip permet de parcourir les deux listes en même temps
             self.createGuizmo(
-                results.multi_hand_landmarks, 
-                results.multi_hand_world_landmarks, 
+                results.multi_hand_landmarks,
+                results.multi_hand_world_landmarks,
                 self.width,
-                self.height
+                self.height,
             )
 
     def createGuizmo(self, multi_landmarks, multi_world_landmarks, width, height):
@@ -34,8 +35,8 @@ class Model:
             # --- 1. POSITION ÉCRAN (Utilise hand_landmarks) ---
             # On prend l'index (point 8) ou le poignet (point 0)
             index_tip = hand_lms.landmark[8]
-            screen_x = int((1 - index_tip.x) * width * 2)
-            screen_y = int(index_tip.y * height * 2)
+            screen_x = int((1 - index_tip.x) * width)
+            screen_y = int(index_tip.y * height)
 
             # --- 2. ANGLES & GIZMO (Utilise hand_world_landmarks) ---
             wrist_w = hand_world_lms.landmark[0]
@@ -69,16 +70,32 @@ class Model:
             dist = np.sqrt((index_a.x - index_b.x) ** 2 + (index_a.y - index_b.y) ** 2)
 
             # debug tracé de la distance
-            cv2.line(self.frame, (int(index_a.x * width), int(index_a.y * height)), (int(index_b.x * width), int(index_b.y * height)), (255, 0, 0), 2)
-            cv2.putText(self.frame, f"Dist: {dist:.4f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+            cv2.line(
+                self.frame,
+                (int(index_a.x * width), int(index_a.y * height)),
+                (int(index_b.x * width), int(index_b.y * height)),
+                (255, 0, 0),
+                2,
+            )
+            cv2.putText(
+                self.frame,
+                f"Dist: {dist:.4f}",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 0, 255),
+                2,
+            )
 
-            if (dist < 0.05):  # Seuil à ajuster selon les besoins
+            if dist < 0.05:  # Seuil à ajuster selon les besoins
                 is_shooting = True
             else:
                 is_shooting = False
 
-            self.player.append({
-                'angle': (pitch, roll, yaw),
-                'pos': (screen_x, screen_y),
-                'is_shooting': is_shooting
-            })
+            self.player.append(
+                {
+                    "angle": (pitch, roll, yaw),
+                    "pos": (screen_x, screen_y),
+                    "is_shooting": is_shooting,
+                }
+            )

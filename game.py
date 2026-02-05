@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 class Game:
     def __init__(self, md):
         self.md = md
@@ -10,20 +11,20 @@ class Game:
         """Dessine un rectangle avec des coins arrondis"""
         x1, y1 = pt1
         x2, y2 = pt2
-        
+
         # Créer un overlay pour la transparence
         overlay = img.copy()
-        
+
         # Rectangle principal
         cv2.rectangle(overlay, (x1 + radius, y1), (x2 - radius, y2), color, -1)
         cv2.rectangle(overlay, (x1, y1 + radius), (x2, y2 - radius), color, -1)
-        
+
         # Coins arrondis
         cv2.circle(overlay, (x1 + radius, y1 + radius), radius, color, -1)
         cv2.circle(overlay, (x2 - radius, y1 + radius), radius, color, -1)
         cv2.circle(overlay, (x1 + radius, y2 - radius), radius, color, -1)
         cv2.circle(overlay, (x2 - radius, y2 - radius), radius, color, -1)
-        
+
         # Appliquer la transparence
         cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
 
@@ -33,31 +34,69 @@ class Game:
         panel_width = 280
         panel_x = 10
         panel_y = 10
-        
+
         # Fond du panneau avec transparence
         overlay = self.md.frame.copy()
-        cv2.rectangle(overlay, (panel_x, panel_y), (panel_x + panel_width, panel_y + panel_height), 
-                     (40, 40, 40), -1)
+        cv2.rectangle(
+            overlay,
+            (panel_x, panel_y),
+            (panel_x + panel_width, panel_y + panel_height),
+            (40, 40, 40),
+            -1,
+        )
         cv2.addWeighted(overlay, 0.8, self.md.frame, 0.2, 0, self.md.frame)
-        
+
         # Bordure du panneau
-        cv2.rectangle(self.md.frame, (panel_x, panel_y), (panel_x + panel_width, panel_y + panel_height), 
-                     (0, 200, 255), 2)
-        
+        cv2.rectangle(
+            self.md.frame,
+            (panel_x, panel_y),
+            (panel_x + panel_width, panel_y + panel_height),
+            (0, 200, 255),
+            2,
+        )
+
         # Titre
-        cv2.putText(self.md.frame, "HAND TRACKING", (panel_x + 15, panel_y + 30), 
-                   cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 255), 2)
-        
+        cv2.putText(
+            self.md.frame,
+            "HAND TRACKING",
+            (panel_x + 15, panel_y + 30),
+            cv2.FONT_HERSHEY_DUPLEX,
+            0.7,
+            (0, 255, 255),
+            2,
+        )
+
         # Nombre de mains détectées
-        cv2.putText(self.md.frame, f"Hands: {player_count}", (panel_x + 15, panel_y + 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
+        cv2.putText(
+            self.md.frame,
+            f"Hands: {player_count}",
+            (panel_x + 15, panel_y + 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            1,
+        )
+
         # Afficher les angles si disponibles
         if angles:
-            cv2.putText(self.md.frame, f"Pitch: {angles[0]:.1f}°", (panel_x + 15, panel_y + 85), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 200, 255), 1)
-            cv2.putText(self.md.frame, f"Roll: {angles[1]:.1f}°  Yaw: {angles[2]:.1f}°", 
-                       (panel_x + 15, panel_y + 105), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 200, 255), 1)
+            cv2.putText(
+                self.md.frame,
+                f"Pitch: {angles[0]:.1f}°",
+                (panel_x + 15, panel_y + 85),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (100, 200, 255),
+                1,
+            )
+            cv2.putText(
+                self.md.frame,
+                f"Roll: {angles[1]:.1f}°  Yaw: {angles[2]:.1f}°",
+                (panel_x + 15, panel_y + 105),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (100, 200, 255),
+                1,
+            )
 
     def view(self):
         """Affichage de l'interface"""
@@ -66,16 +105,26 @@ class Game:
         btn_x2, btn_y2 = 220, self.md.height - 20
 
         # Fond du bouton avec effet de transparence
+        self.md.frame = cv2.flip(self.md.frame, 1)  # Flip horizontal pour effet miroir
         overlay = self.md.frame.copy()
         cv2.rectangle(overlay, (btn_x1, btn_y1), (btn_x2, btn_y2), (50, 180, 255), -1)
         cv2.addWeighted(overlay, 0.7, self.md.frame, 0.3, 0, self.md.frame)
 
         # Bordure du bouton
-        cv2.rectangle(self.md.frame, (btn_x1, btn_y1), (btn_x2, btn_y2), (0, 255, 255), 2)
+        cv2.rectangle(
+            self.md.frame, (btn_x1, btn_y1), (btn_x2, btn_y2), (0, 255, 255), 2
+        )
 
         # Texte du bouton
-        cv2.putText(self.md.frame, "QUIT (Q)", (btn_x1 + 45, btn_y1 + 28), 
-                   cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(
+            self.md.frame,
+            "QUIT (Q)",
+            (btn_x1 + 45, btn_y1 + 28),
+            cv2.FONT_HERSHEY_DUPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+        )
 
     def handle_click(self, x, y, clicked=False):
         btn_y1 = self.md.height - 60
@@ -98,24 +147,44 @@ class Game:
             cv2.circle(self.md.frame, pos, 12, (0, 255, 0), 2)
             cv2.circle(self.md.frame, pos, 5, (0, 255, 0), -1)
             # Croix au centre
-            cv2.line(self.md.frame, (pos[0] - 3, pos[1]), (pos[0] + 3, pos[1]), (255, 255, 255), 1)
-            cv2.line(self.md.frame, (pos[0], pos[1] - 3), (pos[0], pos[1] + 3), (255, 255, 255), 1)
+            cv2.line(
+                self.md.frame,
+                (pos[0] - 3, pos[1]),
+                (pos[0] + 3, pos[1]),
+                (255, 255, 255),
+                1,
+            )
+            cv2.line(
+                self.md.frame,
+                (pos[0], pos[1] - 3),
+                (pos[0], pos[1] + 3),
+                (255, 255, 255),
+                1,
+            )
 
     def update(self):
         self.view()
 
         # Afficher le panneau d'info
         player_count = len(self.md.player)
-        angles = self.md.player[0]['angle'] if player_count > 0 else None
+        angles = self.md.player[0]["angle"] if player_count > 0 else None
         self.draw_info_panel(player_count, angles)
 
         # Dessiner les curseurs pour chaque main
         for i, player in enumerate(self.md.player):
-            self.handle_click(int(player['pos'][0]), int(player['pos'][1]), player['is_shooting'])
-            self.draw_cursor(player['pos'][0], player['pos'][1], player['is_shooting'])
+            self.handle_click(
+                int(player["pos"][0]), int(player["pos"][1]), player["is_shooting"]
+            )
+            self.draw_cursor(player["pos"][0], player["pos"][1], player["is_shooting"])
 
             # Afficher le numéro de la main si plusieurs mains
             if player_count > 1:
-                cv2.putText(self.md.frame, f"#{i+1}", 
-                          (int(player['pos'][0]) + 20, int(player['pos'][1]) - 10),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(
+                    self.md.frame,
+                    f"#{i+1}",
+                    (int(player["pos"][0]) + 20, int(player["pos"][1]) - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2,
+                )
