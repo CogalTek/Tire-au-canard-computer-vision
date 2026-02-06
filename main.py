@@ -10,24 +10,30 @@ def main():
     md = Model()
     gm = Game(md)
     window_name = "Hand Gesture Recognition"
-    cv2.namedWindow(window_name)
+    cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
 
     while md.cap.isOpened():
-        success, frame = md.cap.read()
-        if not success:
+        frame = md.get_current_frame()
+        if frame is None:
             print("Ignoring empty camera frame.")
             continue
 
-        # Utiliser les dimensions de la frame capturée
-        height, width = frame.shape[:2]
-        md.width, md.height = width, height
+        md.process_active_players()
+        md.process_frame(frame)
 
-        md.update()
-        md.predict(frame)
         gm.update()
+        gm.draw()
 
         cv2.imshow(window_name, md.frame)
         if cv2.waitKey(1) & 0xFF == ord("q") or gm.qt == 1:
+            break
+
+        # Window closed manually
+        try:
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        except cv2.error:
+            # Handle the case where the window property cannot be retrieved (e.g., on Wayland)
             break
 
     md.cap.release()

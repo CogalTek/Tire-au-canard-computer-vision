@@ -173,7 +173,7 @@ class Game:
                 1,
             )
 
-    def update(self):
+    def draw(self):
         self.view()
 
         # Afficher le panneau d'info
@@ -188,10 +188,20 @@ class Game:
                 cursor = Cursor(player.projected_pos, (0, 255, 0))
                 self.cursors[player.id] = cursor
 
+            cursor.draw(self.md.frame)
+
+    def update(self):
+        # Dessiner les curseurs pour chaque main
+        for i, player in self.md.player.items():
+            cursor = self.cursors.get(player.id)
+            if not cursor:
+                cursor = Cursor(player.projected_pos, (0, 255, 0))
+                self.cursors[player.id] = cursor
+
             cursor.update(player.projected_pos, player.pos, player.is_shooting)
 
             self.handle_click(
                 *cursor.pos,
                 player.is_shooting,
             )
-            cursor.draw(self.md.frame)
+            # cursor.draw(self.md.frame)

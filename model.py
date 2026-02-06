@@ -1,3 +1,4 @@
+from typing import Literal
 import mediapipe as mp
 import numpy as np
 import cv2
@@ -17,14 +18,25 @@ class Model:
         self.height = 480
         self.width = 640
 
-    def update(self):
+    def get_current_frame(self):
+        success, frame = self.cap.read()
+        # frame = cv2.flip(frame, 1)  # Mirror the frame for a more natural interaction
+        if not success:
+            return None
+
+        # Utiliser les dimensions de la frame capturée
+        height, width = frame.shape[:2]
+        self.width, self.height = width, height
+        return frame
+
+    def process_active_players(self):
         # Remove players that haven't been detected for a while
         for player in list(self.player.values()):
             player.update()
             if not player.is_active:
                 self.player.pop(player.id, None)
 
-    def predict(self, frame: cv2.typing.MatLike):
+    def process_frame(self, frame: cv2.typing.MatLike):
         self.frame = frame
         frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
         results = self.hands.process(frame_rgb)
@@ -32,20 +44,23 @@ class Model:
         # On vérifie la présence des deux types de landmarks
         if results.multi_hand_landmarks and results.multi_hand_world_landmarks:
             # zip permet de parcourir les deux listes en même temps
-            self.createGuizmo(
+            self.update_player_hand_metrics(
                 results.multi_hand_landmarks,
                 results.multi_hand_world_landmarks,
+                results.multi_handedness,
                 self.width,
                 self.height,
             )
 
-    def createGuizmo(
+    def update_player_hand_metrics(
         self,
         multi_landmarks: list,
         multi_world_landmarks: list,
+        multi_handedness,
         width: int,
         height: int,
     ):
+        print(multi_handedness)
         for i, (hand_lms, hand_world_lms) in enumerate(
             zip(multi_landmarks, multi_world_landmarks)
         ):
@@ -105,24 +120,6 @@ class Model:
             dist_3d = float(np.linalg.norm(thumb_pos - index_pos))
 
             index_tip = hand_lms.landmark[8]
-
-            # debug tracé de la distance (2D projection)
-            cv2.line(
-                self.frame,
-                (int(thumb_2d.x * width), int(thumb_2d.y * height)),
-                (int(index_base_2d.x * width), int(index_base_2d.y * height)),
-                (255, 0, 0),
-                2,
-            )
-            cv2.putText(
-                self.frame,
-                f"Dist2D: {dist_2d:.4f} 3D: {dist_3d:.4f}",
-                (10, 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 0, 255),
-                2,
-            )
 
             # Use a 3D threshold (meters) for shooting detection; adjust as needed
             is_shooting = (
@@ -232,25 +229,24 @@ class Model:
         angle_deg = float(np.degrees(np.arccos(cosang)))
         bend_deg = abs(180.0 - angle_deg)
 
-        # Side view
-        ## First segment (constant, length = 0.2, along y axis, start in center of screen)
-        cv2.line(
-            self.frame,
-            (self.width // 2, self.height // 2),
-            (self.width // 2, self.height // 2 + int(L * self.height)),
-            (255, 255, 0),
-            2,
-        )
-        # rotated second segment
-        end_x = int(self.width // 2 + L * self.height * np.sin(np.radians(bend_deg)))
-        end_y = int(self.height // 2 + L * self.height * np.cos(np.radians(bend_deg)))
-        cv2.line(
-            self.frame,
-            (self.width // 2, self.height // 2),
-            (end_x, end_y),
-            (255, 0, 0),
-            2,
-        )
+        # # Debug visualization (optional): draw the thumb chain and angle on the frame
+        # ## First segment (constant, length = 0.2, along y axis, start in center of screen)
+        # cv2.line(
+        #     self.frame,
+        #     (self.width // 2, self.height // 2),
+        #     (self.width // 2, self.height // 2 + int(L * self.height)),
+        #     (255, 255, 0),
+        #     2,
+        # )
+        # # rotated second segment
+        # end_x = int(self.width // 2 + L * self.height * np.sin(np.radians(bend_deg)))
+        # end_y = int(self.height // 2 + L * self.height * np.cos(np.radians(bend_deg)))
+        # cv2.line(
+        #     self.frame,
+        #     (self.width // 2, self.height // 2),
+        #     (end_x, end_y),
+        #     (255, 0, 0),
+        #     2,
+        # )
 
-        print(f"Thumb bend angle (est): {bend_deg:.1f}°")
         return bend_deg > 40
