@@ -20,7 +20,6 @@ class Model:
 
     def get_current_frame(self):
         success, frame = self.cap.read()
-        # frame = cv2.flip(frame, 1)  # Mirror the frame for a more natural interaction
         if not success:
             return None
 
@@ -60,9 +59,8 @@ class Model:
         width: int,
         height: int,
     ):
-        print(multi_handedness)
-        for i, (hand_lms, hand_world_lms) in enumerate(
-            zip(multi_landmarks, multi_world_landmarks)
+        for i, (hand_lms, hand_world_lms, handedness) in enumerate(
+            zip(multi_landmarks, multi_world_landmarks, multi_handedness)
         ):
             # player = self._find_or_create_player(hand_world_lms)
             if i >= 2:
@@ -70,7 +68,10 @@ class Model:
                     f"Warning: Detected more hands than player slots ({i}/{2}). Ignoring extra hands."
                 )
                 continue
-            player = self.player.get(i, PlayerHand(id=i))
+            player = self.player.get(
+                handedness.classification[0].label, PlayerHand(id=i)
+            )
+            player.id = handedness.classification[0].label
 
             # --- 1. POSITION ÉCRAN (Utilise hand_landmarks) ---
             # On prend l'index (point 8) ou le poignet (point 0)
@@ -195,13 +196,32 @@ class Model:
         the middle joint and return True if bend > 25°.
         """
         # Use landmarks 4,5,8 which are the thumb tip, index base, and index tip respectively
-        lm2 = hand_lms.landmark[4]
-        lm3 = hand_lms.landmark[3]
-        lm4 = hand_lms.landmark[2]
+        thumb_base = hand_lms.landmark[2]
+        thumb_mid = hand_lms.landmark[3]
+        thumb_tip = hand_lms.landmark[4]
+        index_pip = hand_lms.landmark[6]
+
+        # If thumb tip is below index base in image space, consider it bent
+        if thumb_tip.y > index_pip.y:
+            return True
 
         # Build direction vectors from normalized landmarks (x,y,z provided by hand_lms)
-        v23 = np.array([lm3.x - lm2.x, lm3.y - lm2.y, lm3.z - lm2.z], dtype=float)
-        v34 = np.array([lm4.x - lm3.x, lm4.y - lm3.y, lm4.z - lm3.z], dtype=float)
+        v23 = np.array(
+            [
+                thumb_mid.x - thumb_base.x,
+                thumb_mid.y - thumb_base.y,
+                thumb_mid.z - thumb_base.z,
+            ],
+            dtype=float,
+        )
+        v34 = np.array(
+            [
+                thumb_tip.x - thumb_mid.x,
+                thumb_tip.y - thumb_mid.y,
+                thumb_tip.z - thumb_mid.z,
+            ],
+            dtype=float,
+        )
 
         na = np.linalg.norm(v23)
         nb = np.linalg.norm(v34)

@@ -1,18 +1,32 @@
 import cv2
+from game_data import GameData
 from model import Model
 from game import Game
 import numpy as np
+import time
 
 #
+
+FPS = 30
 
 
 def main():
     md = Model()
     gm = Game(md)
     window_name = "Hand Gesture Recognition"
+    prev_time = time.time()
+    GameData.dt = 0
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
 
     while md.cap.isOpened():
+        current_time = time.time()
+        if current_time - prev_time < 1 / FPS:
+            print("Skipping frame to maintain FPS")
+            continue
+        GameData.dt = current_time - prev_time
+        GameData.fps = 1 / GameData.dt if GameData.dt > 0 else float("inf")
+        prev_time = current_time
+
         frame = md.get_current_frame()
         if frame is None:
             print("Ignoring empty camera frame.")

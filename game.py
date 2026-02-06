@@ -1,8 +1,9 @@
 import cv2
 import typing
+import numpy as np
 
-from components.cursor import Cursor
 from components.player_hand import PlayerHand
+from components.cursor import Cursor
 
 if typing.TYPE_CHECKING:
     from model import Model
@@ -105,26 +106,27 @@ class Game:
                 1,
             )
 
-    def view(self):
+    def view(self, frame: cv2.Mat):
         """Affichage de l'interface"""
         # Bouton de sortie stylisé
         btn_x1, btn_y1 = 10, self.md.height - 60
         btn_x2, btn_y2 = 220, self.md.height - 20
 
         # Fond du bouton avec effet de transparence
-        self.md.frame = cv2.flip(self.md.frame, 1)  # Flip horizontal pour effet miroir
-        overlay = self.md.frame.copy()
-        cv2.rectangle(overlay, (btn_x1, btn_y1), (btn_x2, btn_y2), (50, 180, 255), -1)
-        cv2.addWeighted(overlay, 0.7, self.md.frame, 0.3, 0, self.md.frame)
+        cv2.rectangle(
+            frame,
+            (btn_x1, btn_y1),
+            (btn_x2, btn_y2),
+            (50 * 0.3, 180 * 0.3, 255 * 0.3),
+            -1,
+        )
 
         # Bordure du bouton
-        cv2.rectangle(
-            self.md.frame, (btn_x1, btn_y1), (btn_x2, btn_y2), (0, 255, 255), 2
-        )
+        cv2.rectangle(frame, (btn_x1, btn_y1), (btn_x2, btn_y2), (0, 255, 255), 2)
 
         # Texte du bouton
         cv2.putText(
-            self.md.frame,
+            frame,
             "QUIT (Q)",
             (btn_x1 + 45, btn_y1 + 28),
             cv2.FONT_HERSHEY_DUPLEX,
@@ -174,11 +176,15 @@ class Game:
             )
 
     def draw(self):
-        self.view()
+        overlay = np.zeros_like(self.md.frame)
+        overlay = cv2.cvtColor(
+            overlay, cv2.COLOR_BGR2RGB
+        )  # Convertir en BGRA pour la transparence
+        self.md.frame = cv2.flip(self.md.frame, 1)  # Flip horizontal pour effet miroir
 
         # Afficher le panneau d'info
         player_count = len(self.md.player)
-        angles = self.md.player[0].angle if player_count > 0 else None
+        angles = list(self.md.player.values())[0].angle if player_count > 0 else None
         self.draw_info_panel(player_count, angles)
 
         # Dessiner les curseurs pour chaque main
@@ -188,7 +194,12 @@ class Game:
                 cursor = Cursor(player.projected_pos, (0, 255, 0))
                 self.cursors[player.id] = cursor
 
+            cursor.label = f"Player {player.id}"
             cursor.draw(self.md.frame)
+
+        self.view(overlay)
+
+        self.md.frame = cv2.add(overlay, self.md.frame)
 
     def update(self):
         # Dessiner les curseurs pour chaque main
@@ -204,4 +215,3 @@ class Game:
                 *cursor.pos,
                 player.is_shooting,
             )
-            # cursor.draw(self.md.frame)
