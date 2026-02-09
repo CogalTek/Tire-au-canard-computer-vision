@@ -1,5 +1,5 @@
 import cv2
-from game_data import GameData
+from global_data import GlobalData
 from model import Model
 from game import Game
 import numpy as np
@@ -15,13 +15,13 @@ def main():
     gm = Game(md)
     window_name = "Hand Gesture Recognition"
     prev_time = time.time()
-    GameData.dt = 0
+    GlobalData.dt = 0
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
 
-    while md.cap.isOpened() and GameData.running:
+    while md.cap.isOpened() and GlobalData.running:
         current_time = time.time()
-        GameData.dt = current_time - prev_time
-        GameData.fps = 1 / GameData.dt if GameData.dt > 0 else float("inf")
+        GlobalData.dt = current_time - prev_time
+        GlobalData.fps = 1 / GlobalData.dt if GlobalData.dt > 0 else float("inf")
         prev_time = current_time
 
         frame = md.get_current_frame()

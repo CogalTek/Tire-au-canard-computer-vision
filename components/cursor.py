@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from game_data import GameData
+from global_data import GlobalData
 
 
 class Cursor:
@@ -72,7 +72,7 @@ class Cursor:
                     6,
                 )
                 cv2.circle(frame, pos, 15, (255, 255, 255), 8)
-                self._animation_time -= GameData.dt
+                self._animation_time -= GlobalData.dt
 
             # Curseur actif (shooting) - Rouge avec effet de pulsation
             cv2.circle(frame, pos, 15, (0, 0, 255), 3)

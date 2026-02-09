@@ -1,6 +1,6 @@
 import cv2
 from components.button import Button
-from game_data import GameData
+from global_data import GlobalData
 
 
 class QuitButton(Button):
@@ -17,4 +17,4 @@ class QuitButton(Button):
         self._draw_text(img, color=(255, 255, 255))
 
     def on_shot(self):
-        GameData.running = False
+        GlobalData.running = False

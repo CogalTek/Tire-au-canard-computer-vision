@@ -3,7 +3,7 @@ import typing
 import numpy as np
 
 from components import PlayerHand, Cursor, Target, QuitButton
-from game_data import GameData
+from global_data import GlobalData
 
 if typing.TYPE_CHECKING:
     from model import Model
@@ -213,4 +213,4 @@ class Game:
 
         # Mettre à jour les targets
         for target in self.targets:
-            target.update(GameData.dt)
+            target.update(GlobalData.dt)
