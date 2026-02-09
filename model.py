@@ -142,7 +142,7 @@ class Model:
             player.average_dist_3D = (
                 dist_3d * 0.5 + player.average_dist_3D * 0.5
             )  # simple moving average to smooth distance
-            self.player[i] = player
+            self.player[player.id] = player
 
     def _calculate_projected_pos(
         self, hand_lms, hand_world_lms, width, height, forward_m=0.5
