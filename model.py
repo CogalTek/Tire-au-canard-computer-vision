@@ -9,14 +9,29 @@ from components.player_hand import PlayerHand
 
 class Model:
     def __init__(self):
-        self.hands = hands.Hands(
-            max_num_hands=2, min_detection_confidence=0.8, min_tracking_confidence=0.5
-        )
-        self.cap = cv2.VideoCapture(0)
+        self.hands = hands.Hands(max_num_hands=2, min_detection_confidence=0.8)
+        self._current_camera_index = 0
+        self.cap = cv2.VideoCapture(self._current_camera_index)
         self.frame = None
         self.player: dict[int, PlayerHand] = {}
         self.height = 480
         self.width = 640
+
+    def switch_camera(self):
+        """Switch to a different camera by index. If index is -1, switch to the next available camera."""
+        if self.cap.isOpened():
+            self.cap.release()
+        self.cap.release()
+        index = self._current_camera_index + 1
+        self.cap = cv2.VideoCapture(index)
+        if self.cap.isOpened():
+            self._current_camera_index = index
+            print(f"Switched to camera {index}")
+        else:
+            print(f"Failed to switch to camera {index}. Reverting to previous camera.")
+            index = 0
+            self.cap = cv2.VideoCapture(0)
+        self._current_camera_index = index
 
     def get_current_frame(self):
         success, frame = self.cap.read()

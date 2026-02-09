@@ -20,9 +20,6 @@ def main():
 
     while md.cap.isOpened():
         current_time = time.time()
-        if current_time - prev_time < 1 / FPS:
-            print("Skipping frame to maintain FPS")
-            continue
         GameData.dt = current_time - prev_time
         GameData.fps = 1 / GameData.dt if GameData.dt > 0 else float("inf")
         prev_time = current_time
@@ -39,8 +36,12 @@ def main():
         gm.draw()
 
         cv2.imshow(window_name, md.frame)
-        if cv2.waitKey(1) & 0xFF == ord("q") or gm.qt == 1:
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q") or gm.qt == 1:
             break
+        # Change la capture video en appuyant sur tab
+        if key == ord("\t"):
+            md.switch_camera()
 
         # Window closed manually
         try:
