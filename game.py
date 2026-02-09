@@ -4,6 +4,8 @@ import numpy as np
 
 from components.player_hand import PlayerHand
 from components.cursor import Cursor
+from game_data import GameData
+from target import Target
 
 if typing.TYPE_CHECKING:
     from model import Model
@@ -14,6 +16,8 @@ class Game:
         self.md = md
         self.qt = 0
         self.cursors: dict[int, Cursor] = {}
+        self.targets = []  # List of targets to shoot at
+        self.targets.append(Target(x=100, y=100, radius=30))
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
@@ -187,6 +191,9 @@ class Game:
         angles = list(self.md.player.values())[0].angle if player_count > 0 else None
         self.draw_info_panel(player_count, angles)
 
+        for target in self.targets:
+            target.draw(overlay)
+
         # Dessiner les curseurs pour chaque main
         for i, player in self.md.player.items():
             cursor = self.cursors.get(player.id)
@@ -215,3 +222,7 @@ class Game:
                 *cursor.pos,
                 player.is_shooting,
             )
+
+        # Mettre à jour les targets
+        for target in self.targets:
+            target.update(GameData.dt)
