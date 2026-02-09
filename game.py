@@ -27,6 +27,12 @@ class Game:
             ]
         )
 
+        # TODO: Ajouter un système de score et de timer pour rendre le jeu plus intéressant
+        GlobalData.subscribe(
+            "target_hit",
+            lambda player_id, target: print(f"Player {player_id} hit a {target}!"),
+        )
+
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
         x1, y1 = pt1
@@ -118,22 +124,12 @@ class Game:
                 1,
             )
 
-    def handle_click(self, x, y, cursor: Cursor):
-        btn_y1 = self.md.height - 60
-        btn_y2 = self.md.height - 20
-        # if (
-        #     (10 <= x <= 220 and btn_y1 <= y <= btn_y2)
-        #     and self.qt == 0
-        #     and cursor.just_clicked
-        # ):
-        #     print("Quitting game...")
-        #     self.qt = 1
-
+    def handle_click(self, player_id, x, y, cursor: Cursor):
         if not cursor.just_clicked:
             return
         for target in self.targets:
             if target._is_hit(x, y):
-                print("Target hit!")
+                GlobalData.emit("target_hit", player_id=player_id, target=target)
                 target.on_shot()
 
     def draw_cursor(
@@ -198,17 +194,18 @@ class Game:
 
     def update(self):
         # Dessiner les curseurs pour chaque main
-        for i, player in self.md.player.items():
-            cursor = self.cursors.get(player.id)
+        for player_id, player in self.md.player.items():
+            cursor = self.cursors.get(player_id)
             if not cursor:
                 cursor = Cursor(player.projected_pos, (0, 255, 0))
-                self.cursors[player.id] = cursor
+                self.cursors[player_id] = cursor
 
             cursor.update(player.projected_pos, player.pos, player.is_shooting)
 
             self.handle_click(
+                player_id,
                 *cursor.pos,
-                self.cursors[player.id],
+                self.cursors[player_id],
             )
 
         # Mettre à jour les targets
