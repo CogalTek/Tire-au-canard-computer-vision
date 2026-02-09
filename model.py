@@ -1,10 +1,8 @@
-from typing import Literal
-import mediapipe as mp
 import numpy as np
 import cv2
 from mediapipe.python.solutions import hands
 
-from components.player_hand import PlayerHand
+from components import PlayerHand
 
 
 class Model:

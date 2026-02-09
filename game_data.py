@@ -5,3 +5,4 @@ from dataclasses import dataclass
 class GameData:
     fps: float = 0.0
     dt: float = 0.0
+    running: bool = True

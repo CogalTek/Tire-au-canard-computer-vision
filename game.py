@@ -2,10 +2,8 @@ import cv2
 import typing
 import numpy as np
 
-from components.player_hand import PlayerHand
-from components.cursor import Cursor
+from components import PlayerHand, Cursor, Target, QuitButton
 from game_data import GameData
-from target import Target
 
 if typing.TYPE_CHECKING:
     from model import Model
@@ -17,7 +15,17 @@ class Game:
         self.qt = 0
         self.cursors: dict[int, Cursor] = {}
         self.targets = []  # List of targets to shoot at
-        self.targets.append(Target(x=100, y=100, radius=30))
+        self.targets.extend(
+            [
+                QuitButton(
+                    x=20,
+                    y=md.height - md.height // 20 - 10,
+                    width=md.width // 5,
+                    height=md.height // 20,
+                ),
+                Target(x=md.width // 2, y=md.height // 2, radius=30),
+            ]
+        )
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
@@ -110,41 +118,23 @@ class Game:
                 1,
             )
 
-    def view(self, frame: cv2.Mat):
-        """Affichage de l'interface"""
-        # Bouton de sortie stylisé
-        btn_x1, btn_y1 = 10, self.md.height - 60
-        btn_x2, btn_y2 = 220, self.md.height - 20
-
-        # Fond du bouton avec effet de transparence
-        cv2.rectangle(
-            frame,
-            (btn_x1, btn_y1),
-            (btn_x2, btn_y2),
-            (50 * 0.3, 180 * 0.3, 255 * 0.3),
-            -1,
-        )
-
-        # Bordure du bouton
-        cv2.rectangle(frame, (btn_x1, btn_y1), (btn_x2, btn_y2), (0, 255, 255), 2)
-
-        # Texte du bouton
-        cv2.putText(
-            frame,
-            "QUIT (Q)",
-            (btn_x1 + 45, btn_y1 + 28),
-            cv2.FONT_HERSHEY_DUPLEX,
-            0.7,
-            (255, 255, 255),
-            2,
-        )
-
-    def handle_click(self, x, y, clicked=False):
+    def handle_click(self, x, y, cursor: Cursor):
         btn_y1 = self.md.height - 60
         btn_y2 = self.md.height - 20
-        if (10 <= x <= 220 and btn_y1 <= y <= btn_y2) and self.qt == 0 and clicked:
-            print("Quitting game...")
-            self.qt = 1
+        # if (
+        #     (10 <= x <= 220 and btn_y1 <= y <= btn_y2)
+        #     and self.qt == 0
+        #     and cursor.just_clicked
+        # ):
+        #     print("Quitting game...")
+        #     self.qt = 1
+
+        if not cursor.just_clicked:
+            return
+        for target in self.targets:
+            if target._is_hit(x, y):
+                print("Target hit!")
+                target.on_shot()
 
     def draw_cursor(
         self, origin: tuple[int, int], pos: tuple[int, int], is_active: bool
@@ -192,7 +182,7 @@ class Game:
         self.draw_info_panel(player_count, angles)
 
         for target in self.targets:
-            target.draw(overlay)
+            target.draw(overlay if target._draw_on_overlay else self.md.frame)
 
         # Dessiner les curseurs pour chaque main
         for i, player in self.md.player.items():
@@ -203,8 +193,6 @@ class Game:
 
             cursor.label = f"Player {player.id}"
             cursor.draw(self.md.frame)
-
-        self.view(overlay)
 
         self.md.frame = cv2.add(overlay, self.md.frame)
 
@@ -220,7 +208,7 @@ class Game:
 
             self.handle_click(
                 *cursor.pos,
-                player.is_shooting,
+                self.cursors[player.id],
             )
 
         # Mettre à jour les targets

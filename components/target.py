@@ -6,11 +6,11 @@ import random
 
 import numpy as np
 
+from components.atarget import ATarget
+
 
 @dataclass
-class Target:
-    x: int
-    y: int
+class Target(ATarget):
     radius: int
     _velocity: tuple[float, float] = (0.0, 0.0)
 
@@ -42,3 +42,15 @@ class Target:
         if self.y - self.radius < 0 or self.y + self.radius > 480:
             self._velocity = (self._velocity[0], -self._velocity[1])
             self.y = max(self.radius, min(480 - self.radius, self.y))
+
+    def on_shot(self):
+        """Réinitialise le target à une position aléatoire et une nouvelle vélocité"""
+        self.x = random.randint(50, 590)
+        self.y = random.randint(50, 430)
+        angle = random.uniform(0, 2 * np.pi)
+        speed = random.uniform(50, 150)  # pixels par seconde
+        self._velocity = (speed * np.cos(angle), speed * np.sin(angle))
+
+    def _is_hit(self, x: int, y: int) -> bool:
+        """Détermine si les coordonnées (x, y) touchent le target"""
+        return (x - self.x) ** 2 + (y - self.y) ** 2 <= self.radius**2

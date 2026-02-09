@@ -18,7 +18,7 @@ def main():
     GameData.dt = 0
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
 
-    while md.cap.isOpened():
+    while md.cap.isOpened() and GameData.running:
         current_time = time.time()
         GameData.dt = current_time - prev_time
         GameData.fps = 1 / GameData.dt if GameData.dt > 0 else float("inf")
