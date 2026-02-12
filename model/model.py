@@ -6,7 +6,7 @@ from mediapipe.python.solutions import hands
 from random import choice
 
 from .amodel import AModel
-from . import available_models
+from .available_models import available_models
 from components import PlayerHand
 
 
