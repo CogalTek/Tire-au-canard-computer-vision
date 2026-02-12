@@ -1,13 +1,19 @@
+from typing import List
+
 import numpy as np
 import cv2
 from mediapipe.python.solutions import hands
+from random import choice
 
+from .amodel import AModel
+from . import available_models
 from components import PlayerHand
 
 
 class Model:
     def __init__(self):
-        self.hands = hands.Hands(max_num_hands=2, min_detection_confidence=0.8)
+        # self.hands: AModel = hands.Hands(max_num_hands=2, min_detection_confidence=0.8)
+        self.hands: AModel = choice(available_models)()
         self._current_camera_index = 0
         self.cap = cv2.VideoCapture(self._current_camera_index)
         self.frame = None
@@ -66,9 +72,9 @@ class Model:
 
     def update_player_hand_metrics(
         self,
-        multi_landmarks: list,
-        multi_world_landmarks: list,
-        multi_handedness,
+        multi_landmarks: List[AModel.HandLandmarks],
+        multi_world_landmarks: List[AModel.HandLandmarks],
+        multi_handedness: List[AModel.Handedness],
         width: int,
         height: int,
     ):
@@ -81,7 +87,7 @@ class Model:
                     f"Warning: Detected more hands than player slots ({i}/{2}). Ignoring extra hands."
                 )
                 continue
-            player = self.player.get(
+            player: PlayerHand = self.player.get(
                 handedness.classification[0].label, PlayerHand(id=i)
             )
             player.id = handedness.classification[0].label
