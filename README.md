@@ -5,7 +5,7 @@ Simple local multiplayer game that uses hand gestures as input to "shoot" target
 
 ## Quickstart
 
-Prerequisites: Python 3.10+ and a camera.
+Prerequisites: Python 3.11.4 and a camera.
 
 1. Create and activate a virtual environment, then install dependencies:
 
