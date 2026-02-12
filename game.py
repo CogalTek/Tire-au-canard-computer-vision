@@ -15,6 +15,7 @@ class Game:
         self.qt = 0
         self.cursors: dict[int, Cursor] = {}
         self.targets = []  # List of targets to shoot at
+        self.scores = {}
         self.targets.extend(
             [
                 QuitButton(
@@ -26,12 +27,23 @@ class Game:
                 Target(x=md.width // 2, y=md.height // 2, radius=30),
             ]
         )
-
+        """
         # TODO: Ajouter un système de score et de timer pour rendre le jeu plus intéressant
         GlobalData.subscribe(
             "target_hit",
             lambda player_id, target: print(f"Player {player_id} hit a {target}!"),
         )
+        """
+        GlobalData.subscribe("target_hit", self.on_target_hit)
+
+    def on_target_hit(self, player_id, target):
+        # Initialiser le score du joueur s'il n'existe pas
+        if player_id not in self.scores:
+            self.scores[player_id] = 0
+
+        # Incrémenter le score
+        self.scores[player_id] += 1
+        print(f"Player {player_id} hit a {target}! Score: {self.scores[player_id]}")
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
@@ -53,6 +65,29 @@ class Game:
 
         # Appliquer la transparence
         cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
+
+    def draw_scores(self):
+        left_score = self.scores.get("Left", 0)
+        right_score = self.scores.get("Right", 0)
+        cv2.putText(
+            self.md.frame,
+            f"Right Score: {left_score}",
+            (400, 464),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (255, 255, 255),
+            2,
+        ) 
+        cv2.putText(
+            self.md.frame,
+            f"Left Score: {right_score}",
+            (170, 464),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (255, 255, 255),
+            2,
+        ) 
+        
 
     def draw_info_panel(self, player_count: int, angles: PlayerHand.Angle | None):
         """Affiche un panneau d'informations stylisé"""
@@ -176,6 +211,7 @@ class Game:
         player_count = len(self.md.player)
         angles = list(self.md.player.values())[0].angle if player_count > 0 else None
         self.draw_info_panel(player_count, angles)
+        self.draw_scores()
 
         for target in self.targets:
             target.draw(overlay if target._draw_on_overlay else self.md.frame)
@@ -187,7 +223,7 @@ class Game:
                 cursor = Cursor(player.projected_pos, (0, 255, 0))
                 self.cursors[player.id] = cursor
 
-            #On inverse les labels des mains car on est sur une caméra frontale donc inversé
+            #On inverse les labels des mains car on est sur une caméra frontale
             if player.id == "Left":
                 cursor.label = f"Player Right"
             else:
