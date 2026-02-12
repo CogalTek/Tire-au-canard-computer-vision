@@ -17,6 +17,7 @@ class Game:
         self.targets = []  # List of targets to shoot at
         self.scores = {}
         self.game_over = False
+        self.winCondition = 5
         self.targets.extend(
             [
                 QuitButton(
@@ -38,7 +39,7 @@ class Game:
         # Incrémenter le score
         self.scores[player_id] += 1
         print(f"Player {player_id} hit a {target}! Score: {self.scores[player_id]}")
-        if self.scores[player_id] >= 1:
+        if self.scores[player_id] >= self.winCondition:
             self.game_over = True
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
@@ -158,6 +159,9 @@ class Game:
     def handle_click(self, player_id, x, y, cursor: Cursor):
         if not cursor.just_clicked:
             return
+        if self.game_over:
+            self.game_over = False
+            self.scores = {}
         for target in self.targets:
             if target._is_hit(x, y):
                 GlobalData.emit("target_hit", player_id=player_id, target=target)
@@ -215,7 +219,16 @@ class Game:
                 3,
                 (30, 255, 30),
                 6,
-            ) 
+            )
+            cv2.putText(
+                self.md.frame,
+                "Shoot to restart",
+                (180, 300),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (30, 255, 30),
+                2,
+            )
         else:
             # Afficher le panneau d'info
             player_count = len(self.md.player)
@@ -225,7 +238,7 @@ class Game:
 
             for target in self.targets:
                 target.draw(overlay if target._draw_on_overlay else self.md.frame)
-
+                
             # Dessiner les curseurs pour chaque main
             for i, player in self.md.player.items():
                 cursor = self.cursors.get(player.id)
