@@ -187,7 +187,11 @@ class Game:
                 cursor = Cursor(player.projected_pos, (0, 255, 0))
                 self.cursors[player.id] = cursor
 
-            cursor.label = f"Player {player.id}"
+            #On inverse les labels des mains car on est sur une caméra frontale donc inversé
+            if player.id == "Left":
+                cursor.label = f"Player Right"
+            else:
+                cursor.label = f"Player Left"
             cursor.draw(self.md.frame)
 
         self.md.frame = cv2.add(overlay, self.md.frame)
