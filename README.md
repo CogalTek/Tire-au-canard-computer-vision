@@ -10,15 +10,15 @@ Prerequisites: Python 3.11.4 and a camera.
 1. Create and activate a virtual environment, then install dependencies:
 
 ```sh
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install .
 ```
 
 2. Start the game:
 
 ```sh
-python main.py
+tire-au-cannard
 ```
 
 ## Controls
