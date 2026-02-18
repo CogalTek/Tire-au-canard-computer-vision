@@ -2,7 +2,7 @@ import cv2
 import typing
 import numpy as np
 
-from components import PlayerHand, Cursor, Target, QuitButton
+from components import PlayerHand, Cursor, Target, QuitButton, RectTarget
 from global_data import GlobalData
 
 if typing.TYPE_CHECKING:
@@ -18,6 +18,7 @@ class Game:
         self.scores = {}
         self.game_over = False
         self.winCondition = 5
+        self.show_panel = False
         self.targets.extend(
             [
                 QuitButton(
@@ -27,11 +28,20 @@ class Game:
                     height=md.height // 20,
                 ),
                 Target(x=md.width // 2, y=md.height // 2, radius=30),
+                RectTarget(
+                    x=md.width // 4,
+                    y=md.height // 4,
+                    w=80,
+                    h=80,
+                    callback=self.toggle_help_panel,
+                ),
             ]
         )
         GlobalData.subscribe("target_hit", self.on_target_hit)
 
     def on_target_hit(self, player_id, target):
+        if not isinstance(target, Target):
+            return
         # Initialiser le score du joueur s'il n'existe pas
         if player_id not in self.scores:
             self.scores[player_id] = 0
@@ -41,6 +51,9 @@ class Game:
         print(f"Player {player_id} hit a {target}! Score: {self.scores[player_id]}")
         if self.scores[player_id] >= self.winCondition:
             self.game_over = True
+
+    def toggle_help_panel(self):
+        self.show_panel = not self.show_panel
 
     def draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         """Dessine un rectangle avec des coins arrondis"""
@@ -74,7 +87,7 @@ class Game:
             0.9,
             (255, 255, 255),
             2,
-        ) 
+        )
         cv2.putText(
             self.md.frame,
             f"Left Score: {right_score}",
@@ -83,15 +96,41 @@ class Game:
             0.9,
             (255, 255, 255),
             2,
-        ) 
-        
+        )
 
     def draw_info_panel(self, player_count: int, angles: PlayerHand.Angle | None):
         """Affiche un panneau d'informations stylisé"""
-        panel_height = 120
-        panel_width = 280
+        title = "Help" if self.show_panel else "Press 'H' for help"
+        content = (
+            (
+                "Aim by fingergun'ing at the cam\n"
+                "Shoot by either:\n"
+                "- Bending your thumb\n"
+                "- Bringing your thumb lower\n"
+                "  than the index finger\n"
+                "Keybindings:\n"
+                "'Tab' switch camera\n"
+                "'Q' to quit\n"
+                "'H' toggle help"
+            )
+            if self.show_panel
+            else ""
+        )
+        panel_height = content.count("\n") * 28 + 50
+        panel_width = (
+            max(len(title) * 13, len(max(content.split("\n"), key=len)) * 10) + 20
+        )
         panel_x = 10
         panel_y = 10
+        panel_target: RectTarget = self.targets[
+            2
+        ]  # Assuming the RectTarget is the third target in the list
+
+        if panel_target.w != panel_width or panel_target.h != panel_height:
+            panel_target.w = panel_width
+            panel_target.h = panel_height
+            panel_target.x = panel_x
+            panel_target.y = panel_y
 
         # Fond du panneau avec transparence
         overlay = self.md.frame.copy()
@@ -116,43 +155,22 @@ class Game:
         # Titre
         cv2.putText(
             self.md.frame,
-            "HAND TRACKING",
-            (panel_x + 15, panel_y + 30),
+            title,
+            (panel_x + 14, panel_y + 30),
             cv2.FONT_HERSHEY_DUPLEX,
             0.7,
             (0, 255, 255),
             2,
         )
 
-        # Nombre de mains détectées
-        cv2.putText(
-            self.md.frame,
-            f"Hands: {player_count}",
-            (panel_x + 15, panel_y + 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 255, 255),
-            1,
-        )
-
-        # Afficher les angles si disponibles
-        if angles:
+        for i, line in enumerate(content.split("\n")):
             cv2.putText(
                 self.md.frame,
-                f"Pitch: {angles.pitch:.1f}°",
-                (panel_x + 15, panel_y + 85),
+                line,
+                (panel_x + 15, panel_y + 60 + i * 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (100, 200, 255),
-                1,
-            )
-            cv2.putText(
-                self.md.frame,
-                f"Roll: {angles.roll:.1f}°  Yaw: {angles.yaw:.1f}°",
-                (panel_x + 15, panel_y + 105),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (100, 200, 255),
+                0.6,
+                (255, 255, 255),
                 1,
             )
 
@@ -232,13 +250,15 @@ class Game:
         else:
             # Afficher le panneau d'info
             player_count = len(self.md.player)
-            angles = list(self.md.player.values())[0].angle if player_count > 0 else None
+            angles = (
+                list(self.md.player.values())[0].angle if player_count > 0 else None
+            )
             self.draw_info_panel(player_count, angles)
             self.draw_scores()
 
             for target in self.targets:
                 target.draw(overlay if target._draw_on_overlay else self.md.frame)
-                
+
             # Dessiner les curseurs pour chaque main
             for i, player in self.md.player.items():
                 cursor = self.cursors.get(player.id)
@@ -246,7 +266,7 @@ class Game:
                     cursor = Cursor(player.projected_pos, (0, 255, 0))
                     self.cursors[player.id] = cursor
 
-                #On inverse les labels des mains car on est sur une caméra frontale
+                # On inverse les labels des mains car on est sur une caméra frontale
                 if player.id == "Left":
                     cursor.label = f"Player Right"
                 else:
@@ -255,8 +275,9 @@ class Game:
 
         self.md.frame = cv2.add(overlay, self.md.frame)
 
-    def update(self):
-        # Dessiner les curseurs pour chaque main
+    def update(self, key: int = None):
+        if key == ord("h"):
+            self.toggle_help_panel()
         for player_id, player in self.md.player.items():
             cursor = self.cursors.get(player_id)
             if not cursor:

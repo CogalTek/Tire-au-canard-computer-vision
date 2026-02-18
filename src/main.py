@@ -32,16 +32,16 @@ def main():
         md.process_active_players()
         md.process_frame(frame)
 
-        gm.update()
-        gm.draw()
-
-        cv2.imshow(window_name, md.frame)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q") or gm.qt == 1:
             break
         # Change la capture video en appuyant sur tab
         if key == ord("\t"):
             md.switch_camera()
+
+        gm.update(key)
+        gm.draw()
+        cv2.imshow(window_name, md.frame)
 
         # Window closed manually
         try:
